@@ -1,0 +1,147 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.22.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: opensearch-dashboards
+  name: opensearch-dashboards
+spec:
+  ports:
+  - name: "5601"
+    port: 80
+    targetPort: 5601
+  selector:
+    io.kompose.service: opensearch-dashboards
+  type: LoadBalancer
+status:
+  loadBalancer: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.22.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: opensearch-node1
+  name: opensearch-node1
+spec:
+  ports:
+  - name: "9200"
+    port: 9200
+    targetPort: 9200
+  - name: "9600"
+    port: 9600
+    targetPort: 9600
+  selector:
+    io.kompose.service: opensearch-node1
+status:
+  loadBalancer: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.22.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: opensearch-dashboards
+  name: opensearch-dashboards
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: opensearch-dashboards
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.22.0 (HEAD)
+      creationTimestamp: null
+      labels:
+        io.kompose.network/opensearch-net: "true"
+        io.kompose.service: opensearch-dashboards
+    spec:
+      containers:
+      - env:
+        - name: OPENSEARCH_HOSTS
+          value: https://opensearch-node1:9200
+        image: opensearchproject/opensearch-dashboards:1.0.0-rc1
+        name: opensearch-dashboards
+        ports:
+        - containerPort: 5601
+        resources: {}
+      restartPolicy: Always
+status: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.22.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: opensearch-node1
+  name: opensearch-node1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: opensearch-node1
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.22.0 (HEAD)
+      creationTimestamp: null
+      labels:
+        io.kompose.network/opensearch-net: "true"
+        io.kompose.service: opensearch-node1
+    spec:
+      containers:
+      - env:
+        - name: OPENSEARCH_JAVA_OPTS
+          value: -Xms512m -Xmx512m
+        - name: bootstrap.memory_lock
+          value: "true"
+        - name: cluster.initial_master_nodes
+          value: opensearch-node1
+        - name: cluster.name
+          value: opensearch-cluster
+        - name: discovery.seed_hosts
+          value: opensearch-node1
+        - name: node.name
+          value: opensearch-node1
+        image: opensearchproject/opensearch:1.0.0-rc1
+        name: opensearch-node1
+        ports:
+        - containerPort: 9200
+        - containerPort: 9600
+        resources: {}
+      restartPolicy: Always
+status: {}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  creationTimestamp: null
+  name: opensearch-net
+spec:
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          io.kompose.network/opensearch-net: "true"
+  podSelector:
+    matchLabels:
+      io.kompose.network/opensearch-net: "true"
+---
